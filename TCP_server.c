@@ -8,6 +8,7 @@ const int PORT_NUM = 8080;
 const int MAX_CONNECT = 10;
 int main()
 {
+  int RTT = 200,MSS = 512,threshold = 65535; 
   int listenfd,clientfd;
   struct sockaddr_in seraddr,cliaddr;
   char buffer[20] = "Server ACK.";

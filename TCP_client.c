@@ -8,6 +8,7 @@ const int PORT_NUM = 8080;
 int main()
 {
   int sockfd;
+  int buffer_size = 10240;
   struct sockaddr_in serveraddr;
   char buffer[20];
   char send_b[20] = "Hi server!";
