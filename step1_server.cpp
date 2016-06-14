@@ -13,18 +13,19 @@ using namespace std;
 typedef struct{
   int seq_num;
   int ack_num;
-  char _data[100];
+  char _data[BUFFER_SIZE];
 }send_pkt;
 typedef struct{
   int seq_num;
   int ack_num;
-  char _data[100];
+  int rwnd;
 }rec_pkt;
 class TCP{
   public:
     TCP();
     ~TCP();
     void getip();
+    void set_zero();
     void print_parameters();
     void create_data();
     void get_seq_num();
@@ -33,13 +34,14 @@ class TCP{
     void check_listen();
     void go_listen();
     void three_way();
+    void data_trans();
   private:
     int ipfd,RTT,MSS,threshold,port,n_seq_num,listenfd,clientfd,ack,seq_num;
     char _data[BUFFER_SIZE],synack[10],syn[5],c_ack[5];
     struct sockaddr_in *addr,seraddr,cliaddr;
     struct ifreq if_info;
     send_pkt _send;
-    rec_pkt _rec,_rec2;
+    rec_pkt _rec;
     char ip[INET_ADDRSTRLEN],cip[INET_ADDRSTRLEN];
 };
 TCP::TCP()
@@ -48,15 +50,17 @@ TCP::TCP()
   MSS = 512;
   threshold = 65535;
   port = 10250;
-  for(int i = 0;i < sizeof(_send._data);i++)
+  for(int i = 0;i < BUFFER_SIZE;i++)
   {
     _send._data[i] = 0;
-    _rec._data[i] = 0;
-    _rec2._data[i] = 0;
   }
 }
 TCP::~TCP()
 {}
+void TCP::set_zero()
+{
+  memset(_send._data,0,BUFFER_SIZE);
+}
 void TCP::getip()//get the server ip
 {
   ipfd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -152,15 +156,45 @@ void TCP::three_way()
   _send.ack_num = _rec.seq_num + 1;
   send(clientfd,&_send,sizeof(_send),0);
   cout<<"Send a packet(SYN/ACK) to "<<cip<<" : "<<cliaddr.sin_port<<endl;
-  int rec2 = recv(clientfd,&_rec2,sizeof(_rec2),0);
+  int rec2 = recv(clientfd,&_rec,sizeof(_rec),0);
   inet_ntop(AF_INET, &cliaddr.sin_addr,cip,sizeof(cip));
   cout<<"Receive a packet(ACK) from "<<cip<<" : "<<cliaddr.sin_port<<endl;
-  cout<<"       Receive a packet (seq_num = "<<_rec2.seq_num<<", ack_num = "<<_rec2.ack_num<<")"<<endl;
+  cout<<"       Receive a packet (seq_num = "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
   cout<<"=====Complete the three-way handshake====="<<endl;
+  data_trans();
+}
+void TCP::data_trans()
+{
+  _rec.rwnd = 10240;
+  int cwnd = 1;
+  int mark = 0;
+  cout<<"Start to send the file, the file size is 10240 bytes."<<endl;
+  cout<<"*****Slow start*****"<<endl;
+  _send.seq_num = 1;
+  while(mark <= BUFFER_SIZE)
+  {
+    if(cwnd > _rec.rwnd)
+      cwnd = 1;
+    cout<<"cwnd = "<<cwnd<<", rwnd = "<<_rec.rwnd<<", threshold = "<<threshold<<endl;
+    for(int i = mark;i < cwnd;i++)
+      _send._data[i-mark] = _data[i];
+    _send.seq_num = cwnd;
+    _send.ack_num = _rec.seq_num + 1;
+    send(clientfd,&_send,sizeof(_send),0);
+    cout<<"         Send a packet at : "<<cwnd<<"byte"<<endl;
+    int rec = recv(clientfd,&_rec,sizeof(_rec),0);
+    cout<<"         Receive a packet (seq_num =  "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
+    cwnd += cwnd;
+    if(cwnd > MSS)
+      cwnd = MSS;
+    mark += cwnd;
+    set_zero();
+  }
 }
 int main()
 {
   TCP myTCP;
+  myTCP.set_zero();
   myTCP.getip();
   myTCP.print_parameters();
   myTCP.create_data();

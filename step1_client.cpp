@@ -7,16 +7,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#define BUFFER_SIZE 10240
 using namespace std;
 typedef struct{
   int seq_num;
   int ack_num;
-  char _data[100];
+  int rwnd;
 }send_pkt;
 typedef struct{
   int seq_num;
   int ack_num;
-  char _data[100];
+  char _data[BUFFER_SIZE];
 }rec_pkt;
 class TCP{
   public:
@@ -24,11 +25,13 @@ class TCP{
     ~TCP();
     void ini();
     void get_seq_num();
+    void set_zero();
     void server(char *ip,char *C_PORT_NUM);
     void three_way(char *_ip,char *_port);
+    void data_trans();
   private:
-    int port,myfd,seq_num,ack,n_seq_num;
-    char synack[10],syn[5],c_ack[5];
+    int port,myfd,seq_num,ack,n_seq_num,rwnd;
+    char result[BUFFER_SIZE];
     struct sockaddr_in myaddr,serveraddr;
     struct hostent *hp;
     send_pkt _send;
@@ -57,6 +60,10 @@ void TCP::get_seq_num()
 {
   srand((int)time(NULL));
   seq_num = rand() % 10000 + 1;
+}
+void TCP::set_zero()
+{
+  memset(_rec._data,0,100);
 }
 void TCP::server(char *ip,char *C_PORT_NUM)
 {
@@ -89,6 +96,31 @@ void TCP::server(char *ip,char *C_PORT_NUM)
   cout<<"Send a packet(ACK) to "<<_ip<<" : "<<_port<<endl;
   cout<<"=====Complete the three-way handshake====="<<endl;
 }
+void TCP::data_trans()
+{
+  int rec,mark = 0,len = 0,LBRead,LBRcvd;
+  rwnd = 10240;
+  while(mark <= BUFFER_SIZE)
+  {
+    rec = recv(myfd,&_rec,sizeof(_rec),0);
+    cout<<"Receive a packet (seq_num = "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
+    _send.ack_num = _rec.seq_num * 2;
+    _send.seq_num = _rec.ack_num;
+    for(int i = 0;i < BUFFER_SIZE;i++)
+    {
+      if(_rec._data[i] != 0)
+        len ++;
+      else if(_rec._data[i] == 0)
+        break;
+    }
+    for(int i = mark;i < mark+len;i++)
+      result[i] = _rec._data[i-mark];
+    mark += len;
+    rwnd = BUFFER_SIZE - len;
+    _send.rwnd = rwnd;
+    send(myfd,&_send,sizeof(_send),0);
+  }
+}
 int main(int argc, char**argv)
 {
   TCP myTCP;
@@ -97,8 +129,10 @@ int main(int argc, char**argv)
     cout<<"./client1 server_ip server_port"<<endl;
     exit(1);
   }
+  myTCP.set_zero();
   myTCP.get_seq_num();
   myTCP.ini();
   myTCP.server(argv[1],argv[2]);
   myTCP.three_way(argv[1],argv[2]);
+  myTCP.data_trans();
 }
