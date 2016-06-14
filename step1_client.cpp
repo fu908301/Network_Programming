@@ -8,6 +8,14 @@
 #include <stdlib.h>
 #include <iostream>
 using namespace std;
+typedef struct{
+  int seq_num;
+  int ack_num;
+}send_pkt;
+typedef struct{
+  int seq_num;
+  int ack_num;
+}rec_pkt;
 class TCP{
   public:
     TCP();
@@ -16,13 +24,15 @@ class TCP{
     void get_seq_num();
     void server(char *ip,char *C_PORT_NUM);
     void three_way(char *_ip,char *_port);
-    void chartoint();
-    void inttochar();
+    //void chartoint();
+    //void inttochar();
   private:
     int port,myfd,seq_num,ack,n_seq_num;
     char synack[10],syn[5],c_ack[5];
     struct sockaddr_in myaddr,serveraddr;
     struct hostent *hp;
+    send_pkt _send;
+    rec_pkt _rec;
 };
 TCP::TCP()
 {
@@ -63,26 +73,23 @@ void TCP::server(char *ip,char *C_PORT_NUM)
   serveraddr.sin_port = htons(PORT_NUM);
   connect(myfd,(struct sockaddr*)&serveraddr,sizeof(serveraddr));
 }
-void TCP::three_way(char *_ip,char *_port)
+  void TCP::three_way(char *_ip,char *_port)
 {
   cout<<"=====Start the three-way handshake====="<<endl;
-  inttochar();
-  send(myfd,synack,sizeof(synack),0);
+  _send.seq_num = seq_num;
+  _send.ack_num = 0;
+  send(myfd,&_send,sizeof(_send),0);
   cout<<"Send a packet(SYN/ACK) to "<<_ip<<" : "<<_port<<endl;
-  int rec = recv(myfd,synack,sizeof(synack),0);
-  chartoint();
+  int rec = recv(myfd,&_rec,sizeof(_rec),0);
   cout<<"Receive a packet(SYN/ACK) from "<<_ip<<" : "<<_port<<endl;
-  cout<<"       Receive a packet (seq_num = "<<n_seq_num<<", ack_num = "<<ack<<")"<<endl;
-  int temp;
-  temp = ack;
-  ack = n_seq_num++;
-  seq_num = ack;
-  inttochar();
-  send(myfd,synack,sizeof(synack),0);
+  cout<<"       Receive a packet (seq_num = "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
+  _send.seq_num = _rec.ack_num;
+  _send.ack_num = _rec.seq_num + 1;
+  send(myfd,&_send,sizeof(_send),0);
   cout<<"Send a packet(ACK) to "<<_ip<<" : "<<_port<<endl;
   cout<<"=====Complete the three-way handshake====="<<endl;
 }
-void TCP::chartoint()
+/*void TCP::chartoint()
 {
   for(int i = 0;i < 5;i++)
     syn[i] = synack[i];
@@ -116,7 +123,7 @@ void TCP::inttochar()
     synack[i] = syn[i];
   for(int i = 0;i < 5; i++)
     synack[i+5] = c_ack[i];
-}
+}*/
 int main(int argc, char**argv)
 {
   TCP myTCP;

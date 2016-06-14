@@ -10,6 +10,14 @@
 #include <iostream>
 #define BUFFER_SIZE 10240
 using namespace std;
+typedef struct{
+  int seq_num;
+  int ack_num;
+}send_pkt;
+typedef struct{
+  int seq_num;
+  int ack_num;
+}rec_pkt;
 class TCP{
   public:
     TCP();
@@ -23,13 +31,15 @@ class TCP{
     void check_listen();
     void go_listen();
     void three_way();
-    void chartoint();
-    void inttochar();
+   // void chartoint();
+    //void inttochar();
   private:
     int ipfd,RTT,MSS,threshold,port,n_seq_num,listenfd,clientfd,ack,seq_num;
     char _data[BUFFER_SIZE],synack[10],syn[5],c_ack[5];
     struct sockaddr_in *addr,seraddr,cliaddr;
     struct ifreq if_info;
+    send_pkt _send;
+    rec_pkt _rec,_rec2;
     char ip[INET_ADDRSTRLEN],cip[INET_ADDRSTRLEN];
 };
 TCP::TCP()
@@ -128,23 +138,21 @@ void TCP::go_listen()
 void TCP::three_way()
 {
   cout<<"=====Start the three-way handshake====="<<endl;
-  int rec = recv(clientfd,synack,sizeof(synack),0);
-  chartoint();
+  int rec = recv(clientfd,&_rec,sizeof(_rec),0);
   inet_ntop(AF_INET, &cliaddr.sin_addr, cip, sizeof(cip));
   cout<<"Receive a packet(SYN) from "<<cip<<" : "<<cliaddr.sin_port<<endl;
-  cout<<"       Receive a packet (seq_num = "<<n_seq_num<<", ack_num = "<<ack<<")"<<endl;
-  ack = n_seq_num + 1;
-  inttochar();
-  send(clientfd,synack,sizeof(synack),0);
+  cout<<"       Receive a packet (seq_num = "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
+  _send.seq_num = seq_num;
+  _send.ack_num = _rec.seq_num + 1;
+  send(clientfd,&_send,sizeof(_send),0);
   cout<<"Send a packet(SYN/ACK) to "<<cip<<" : "<<cliaddr.sin_port<<endl;
-  rec = recv(clientfd,synack,sizeof(synack),0);
-  chartoint();
+  int rec2 = recv(clientfd,&_rec2,sizeof(_rec2),0);
   inet_ntop(AF_INET, &cliaddr.sin_addr,cip,sizeof(cip));
   cout<<"Receive a packet(ACK) from "<<cip<<" : "<<cliaddr.sin_port<<endl;
-  cout<<"       Receive a packet (seq_num = "<<n_seq_num<<", ack_num = "<<ack<<")"<<endl;
+  cout<<"       Receive a packet (seq_num = "<<_rec2.seq_num<<", ack_num = "<<_rec2.ack_num<<")"<<endl;
   cout<<"=====Complete the three-way handshake====="<<endl;
 }
-void TCP::chartoint()
+/*void TCP::chartoint()
 {
   for(int i = 0;i < 5;i++)
     syn[i] = synack[i];
@@ -178,7 +186,7 @@ void TCP::inttochar()
     synack[i] = syn[i];
   for(int i = 0;i < 5; i++)
     synack[i+5] = c_ack[i];
-}
+}*/
 int main()
 {
   TCP myTCP;
