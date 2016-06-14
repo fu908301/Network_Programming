@@ -13,10 +13,12 @@ using namespace std;
 typedef struct{
   int seq_num;
   int ack_num;
+  char _data[100];
 }send_pkt;
 typedef struct{
   int seq_num;
   int ack_num;
+  char _data[100];
 }rec_pkt;
 class TCP{
   public:
@@ -31,8 +33,6 @@ class TCP{
     void check_listen();
     void go_listen();
     void three_way();
-   // void chartoint();
-    //void inttochar();
   private:
     int ipfd,RTT,MSS,threshold,port,n_seq_num,listenfd,clientfd,ack,seq_num;
     char _data[BUFFER_SIZE],synack[10],syn[5],c_ack[5];
@@ -48,6 +48,12 @@ TCP::TCP()
   MSS = 512;
   threshold = 65535;
   port = 10250;
+  for(int i = 0;i < sizeof(_send._data);i++)
+  {
+    _send._data[i] = 0;
+    _rec._data[i] = 0;
+    _rec2._data[i] = 0;
+  }
 }
 TCP::~TCP()
 {}
@@ -152,41 +158,6 @@ void TCP::three_way()
   cout<<"       Receive a packet (seq_num = "<<_rec2.seq_num<<", ack_num = "<<_rec2.ack_num<<")"<<endl;
   cout<<"=====Complete the three-way handshake====="<<endl;
 }
-/*void TCP::chartoint()
-{
-  for(int i = 0;i < 5;i++)
-    syn[i] = synack[i];
-  for(int i = 0;i < 5;i++)
-    c_ack[i] = synack[i+5];
-  n_seq_num = atoi(syn);
-  ack = atoi(c_ack);
-}
-void TCP::inttochar()
-{
-  int temp = 4;
-  for(int i = 0;i < 5;i++)
-  {
-    syn[i] = '0';
-    c_ack[i] = '0';
-  }
-  while(seq_num >= 1)
-  {
-    syn[temp] = seq_num % 10 + 48;
-    seq_num /= 10;
-    temp --;
-  }
-  temp = 4;
-  while(ack >= 1)
-  {
-    c_ack[temp] = ack % 10 + 48;
-    ack /= 10;
-    temp --;
-  }
-  for(int i = 0;i < 5; i++)
-    synack[i] = syn[i];
-  for(int i = 0;i < 5; i++)
-    synack[i+5] = c_ack[i];
-}*/
 int main()
 {
   TCP myTCP;
