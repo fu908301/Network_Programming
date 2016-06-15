@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <unistd.h>
 #define BUFFER_SIZE 10240
 using namespace std;
 typedef struct{
@@ -29,6 +30,7 @@ class TCP{
     void server(char *ip,char *C_PORT_NUM);
     void three_way(char *_ip,char *_port);
     void data_trans();
+    void four_way(char *_ip,char *_port);
   private:
     int port,myfd,seq_num,ack,n_seq_num,rwnd;
     char result[BUFFER_SIZE];
@@ -87,7 +89,7 @@ void TCP::server(char *ip,char *C_PORT_NUM)
   _send.ack_num = 0;
   send(myfd,&_send,sizeof(_send),0);
   cout<<"Send a packet(SYN/ACK) to "<<_ip<<" : "<<_port<<endl;
-  int rec = recv(myfd,&_rec,sizeof(_rec),0);
+  recv(myfd,&_rec,sizeof(_rec),0);
   cout<<"Receive a packet(SYN/ACK) from "<<_ip<<" : "<<_port<<endl;
   cout<<"       Receive a packet (seq_num = "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
   _send.seq_num = _rec.ack_num;
@@ -98,11 +100,14 @@ void TCP::server(char *ip,char *C_PORT_NUM)
 }
 void TCP::data_trans()
 {
-  int rec,mark = 0,len = 0,LBRead,LBRcvd;
+  int mark = 0,len = 0,_stop = 0;
   rwnd = 10240;
   while(mark <= BUFFER_SIZE)
   {
-    rec = recv(myfd,&_rec,sizeof(_rec),0);
+    len = 0;
+    recv(myfd,&_rec,sizeof(_rec),0);
+    if(_stop == 0)
+      _stop = _rec.ack_num;
     cout<<"Receive a packet (seq_num = "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
     _send.ack_num = _rec.seq_num * 2;
     _send.seq_num = _rec.ack_num;
@@ -119,7 +124,32 @@ void TCP::data_trans()
     rwnd = BUFFER_SIZE - len;
     _send.rwnd = rwnd;
     send(myfd,&_send,sizeof(_send),0);
+    if(_rec.ack_num == _stop + 28)
+    {
+      cout<<"The file transmission is complete."<<endl;
+      break;
+    }
   }
+}
+void TCP::four_way(char *_ip,char *_port)
+{
+  cout<<"=====Start the four-way handshake====="<<endl;
+  recv(myfd,&_rec,sizeof(_rec),0);
+  cout<<"Receive a packet(FIN) from "<<_ip<<" : "<<_port<<endl;
+  cout<<"       Receive a packet (seq_num = "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
+  _send.seq_num = _rec.ack_num;
+  _send.ack_num = _rec.seq_num + 1;
+  send(myfd,&_send,sizeof(_send),0);
+  cout<<"Send a packet(ACK) to "<<_ip<<" : "<<_port<<endl;
+  _send.seq_num = _rec.ack_num;
+  _send.ack_num = _rec.seq_num + 1;
+  send(myfd,&_send,sizeof(_send),0);
+  cout<<"Send a packet(FIN) to "<<_ip<<" : "<<_port<<endl;
+  recv(myfd,&_rec,sizeof(_rec),0);
+  cout<<"Receive a packet(ACK) from "<<_ip<<" : "<<_port<<endl;
+  cout<<"       Receive a packet (seq_num = "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
+  cout<<"=====Complete the four-way handshake====="<<endl;
+  close(myfd);
 }
 int main(int argc, char**argv)
 {
@@ -135,4 +165,6 @@ int main(int argc, char**argv)
   myTCP.server(argv[1],argv[2]);
   myTCP.three_way(argv[1],argv[2]);
   myTCP.data_trans();
+  myTCP.four_way(argv[1],argv[2]);
+  return 0;
 }
