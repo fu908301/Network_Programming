@@ -8,8 +8,18 @@
 #include <stdlib.h>
 #include <iostream>
 #include <unistd.h>
+#include <map>
+#include <string>
+#include <cstring>
 #define BUFFER_SIZE 10240
 using namespace std;
+struct cmp_str
+{
+  bool operator()(char const *a, char const *b)
+  {
+    return strcmp(a, b) < 0;
+  }
+};
 typedef struct{
   int seq_num;
   int ack_num;
@@ -47,22 +57,47 @@ TCP::~TCP()
 {}
 void TCP::ini()
 {
+  map<string,string> setip,setip2;
+  map<string,int> setport,setport2;
+  string stemp;
+  char temp[20];
   int yes = 1;
+  setip["WAN"] = "192.168.0.1";
+  setip["LAN"] = "192.168.0.2";
+  setip2["WAN"] = "192.168.0.1";
+  setip2["LAN"] = "192.168.0.3";
+  setport["192.168.0.1"] = 10260;
+  setport["192.168.0.2"] = 10260;
+  setport2["192.168.0.1"] = 10265;
+  setport2["192.168.0.3"] = 10265;
   myfd = socket(AF_INET,SOCK_STREAM,0);
   bzero((char *)&myaddr, sizeof(myaddr));
   myaddr.sin_family = AF_INET;
-  myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  myaddr.sin_port = htons(port);
-  if (setsockopt(myfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) 
+  stemp = setip["WAN"];
+  strcpy(temp,stemp.c_str());
+  hp = gethostbyname(temp);
+  if(hp == 0)
+  {
+    cout<<"IP error"<<endl;
+    exit(1);
+  }
+  bcopy(hp->h_addr_list[0],(caddr_t)&myaddr.sin_addr,hp->h_length);
+  myaddr.sin_port = htons(setport["192.168.0.1"]);
+  if (setsockopt(myfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1)
   {
     perror("setsockopt");
     exit(1);
   }
   if(bind(myfd,(struct sockaddr*)&myaddr,sizeof(myaddr)) < 0)
   {
-    cout<<"Bind error."<<endl;
+    cout<<"Bind1 error."<<endl;
     exit(1);
   }
+  cout<<"---------NAT translation table----------"<<endl;
+  cout<<"  WAN side addr        |         LAN side addr "<<endl;
+  cout<<setip["WAN"]<<" : "<<setport["192.168.0.1"]<<"           "<<setip["LAN"]<<" : "<<setport["192.168.0.2"]<<endl;
+  cout<<setip2["WAN"]<<" : "<<setport2["192.168.0.1"]<<"           "<<setip2["LAN"]<<" : "<<setport2["192.168.0.3"]<<endl;
+  cout<<"Client IP is "<<setip["LAN"]<<endl;
 }
 void TCP::get_seq_num()
 {

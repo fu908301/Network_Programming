@@ -121,7 +121,7 @@ void TCP::open_socket()
 void TCP::check_bind()
 {
   int yes = 1;
-  if (setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) 
+  if(setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) 
   {
     perror("setsockopt");
     exit(1);
@@ -180,6 +180,7 @@ void TCP::data_trans()
   _rec.rwnd = 10240;
   int cwnd = 1;
   int mark = 0;
+  int delay = 1;
   int len;
   cout<<"Start to send the file, the file size is 10240 bytes."<<endl;
   cout<<"*****Slow start*****"<<endl;
@@ -203,13 +204,20 @@ void TCP::data_trans()
     _send.ack_num = _rec.seq_num + 1;
     send(clientfd,&_send,sizeof(_send),0);
     cout<<"         Send a packet at : "<<len<<" byte"<<endl;
-    recv(clientfd,&_rec,sizeof(_rec),0);
-    cout<<"         Receive a packet (seq_num =  "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
+    if(delay == 2)
+    {
+      recv(clientfd,&_rec,sizeof(_rec),0);
+      cout<<"         Receive a packet (seq_num =  "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
+      delay = 0;
+    }
+    else if(delay != 2)
+      _rec.seq_num++;
     mark += cwnd;
     cwnd += cwnd;
     if(cwnd > MSS)
       cwnd = MSS;
     set_zero();
+    delay++;
   }
   cout<<"The file transmission is finish."<<endl;
 }

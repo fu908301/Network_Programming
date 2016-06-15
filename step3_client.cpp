@@ -8,8 +8,18 @@
 #include <stdlib.h>
 #include <iostream>
 #include <unistd.h>
+#include <map>
+#include <string>
+#include <cstring>
 #define BUFFER_SIZE 10240
 using namespace std;
+struct cmp_str
+{
+  bool operator()(char const *a, char const *b)
+  {
+    return strcmp(a, b) < 0;
+  }
+};
 typedef struct{
   int seq_num;
   int ack_num;
@@ -48,21 +58,46 @@ TCP::~TCP()
 void TCP::ini()
 {
   int yes = 1;
+  map<string,string> setip,setip2;
+  map<string,int> setport,setport2;
+  string stemp;
+  char temp[20];
+  setip["WAN"] = "192.168.0.1";
+  setip["LAN"] = "192.168.0.2";
+  setip2["WAN"] = "192.168.0.1";
+  setip2["LAN"] = "192.168.0.3";
+  setport["192.168.0.1"] = 10260;
+  setport["192.168.0.2"] = 10260;
+  setport2["192.168.0.1"] = 10265;
+  setport2["192.168.0.3"] = 10265;
   myfd = socket(AF_INET,SOCK_STREAM,0);
   bzero((char *)&myaddr, sizeof(myaddr));
   myaddr.sin_family = AF_INET;
-  myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
-  myaddr.sin_port = htons(port);
-  if (setsockopt(myfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1) 
+  stemp = setip["WAN"];
+  strcpy(temp,stemp.c_str());
+  hp = gethostbyname(temp);
+  if(hp == 0)
+  {
+    cout<<"IP error"<<endl;
+    exit(1);
+  }
+  bcopy(hp->h_addr_list[0],(caddr_t)&myaddr.sin_addr,hp->h_length);
+  myaddr.sin_port = htons(setport["192.168.0.1"]);
+  if (setsockopt(myfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1)
   {
     perror("setsockopt");
     exit(1);
   }
   if(bind(myfd,(struct sockaddr*)&myaddr,sizeof(myaddr)) < 0)
   {
-    cout<<"Bind error."<<endl;
+    cout<<"Bind1 error."<<endl;
     exit(1);
   }
+  cout<<"---------NAT translation table----------"<<endl;
+  cout<<"  WAN side addr        |         LAN side addr "<<endl;
+  cout<<setip["WAN"]<<" : "<<setport["192.168.0.1"]<<"           "<<setip["LAN"]<<" : "<<setport["192.168.0.2"]<<endl;
+  cout<<setip2["WAN"]<<" : "<<setport2["192.168.0.1"]<<"           "<<setip2["LAN"]<<" : "<<setport2["192.168.0.3"]<<endl;
+  cout<<"Client IP is "<<setip["LAN"]<<endl;
 }
 void TCP::get_seq_num()
 {
@@ -106,9 +141,9 @@ void TCP::server(char *ip,char *C_PORT_NUM)
 }
 void TCP::data_trans()
 {
-  int mark = 0,len = 0,_stop = 0;
+  int mark = 0,len = 0,_stop = 0,delay = 1;
   rwnd = 10240;
-  while(mark <= BUFFER_SIZE)
+  while(mark < BUFFER_SIZE)
   {
     len = 0;
     recv(myfd,&_rec,sizeof(_rec),0);
@@ -129,12 +164,17 @@ void TCP::data_trans()
     mark += len;
     rwnd = BUFFER_SIZE - len;
     _send.rwnd = rwnd;
-    send(myfd,&_send,sizeof(_send),0);
+    if(delay == 2)
+    {
+      send(myfd,&_send,sizeof(_send),0);
+      delay = 0;
+    }
     if(_rec.ack_num == _stop + 28)
     {
       cout<<"The file transmission is complete."<<endl;
       break;
     }
+    delay++;
   }
 }
 void TCP::four_way(char *_ip,char *_port)
