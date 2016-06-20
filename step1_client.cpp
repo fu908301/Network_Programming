@@ -19,6 +19,7 @@ typedef struct{
   int seq_num;
   int ack_num;
   char _data[BUFFER_SIZE];
+  int len;
 }rec_pkt;
 class TCP{
   public:
@@ -115,7 +116,7 @@ void TCP::data_trans()
     if(_stop == 0)
       _stop = _rec.ack_num;
     cout<<"Receive a packet (seq_num = "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
-    _send.ack_num = _rec.seq_num * 2;
+    _send.ack_num = _rec.seq_num + _rec.len;
     _send.seq_num = _rec.ack_num;
     for(int i = 0;i < BUFFER_SIZE;i++)
     {

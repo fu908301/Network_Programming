@@ -51,7 +51,7 @@ TCP::TCP()
 {
   RTT = 200;
   MSS = 512;
-  threshold = 65535;
+  threshold = 4096;
   port = 10250;
   c_port = 10260;
   for(int i = 0;i < BUFFER_SIZE;i++)
@@ -183,6 +183,8 @@ void TCP::data_trans()
   int mark = 0;
   int len;
   int loc = 1;
+  int swi = 0;
+  int swi2 = 0;
   cout<<"Start to send the file, the file size is 10240 bytes."<<endl;
   cout<<"*****Slow start*****"<<endl;
   _send.seq_num = 1;
@@ -192,28 +194,96 @@ void TCP::data_trans()
     if(cwnd > _rec.rwnd)
       cwnd = 1;
     cout<<"cwnd = "<<cwnd<<", rwnd = "<<_rec.rwnd<<", threshold = "<<threshold<<endl;
-    for(int i = mark;i < mark + cwnd;i++)
-      _send._data[i-mark] = _data[i];
-    for(int i = 0;i < BUFFER_SIZE;i++)
+    if(cwnd <= 512)
     {
-      if(_send._data[i] != 0)
-        len++;
-      else if(_send._data[i] == 0)
-        break;
+      for(int i = mark;i < mark + cwnd;i++)
+        _send._data[i-mark] = _data[i];
+      for(int i = 0;i < BUFFER_SIZE;i++)
+      {
+        if(_send._data[i] != 0)
+         len++;
+        else if(_send._data[i] == 0)
+          break;
+      }
+      _send.len = len;
+      _send.seq_num = loc;
+      _send.ack_num = _rec.seq_num + 1;
+      send(clientfd,&_send,sizeof(_send),0);
+      cout<<"         Send a packet at : "<<loc<<" byte"<<endl;
+      recv(clientfd,&_rec,sizeof(_rec),0);
+      cout<<"         Receive a packet (seq_num =  "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
+      mark += cwnd;
+      loc += len;
     }
-    _send.len = len;
-    _send.seq_num = loc;
-    _send.ack_num = _rec.seq_num + 1;
-    send(clientfd,&_send,sizeof(_send),0);
-    cout<<"         Send a packet at : "<<loc<<" byte"<<endl;
-    recv(clientfd,&_rec,sizeof(_rec),0);
-    cout<<"         Receive a packet (seq_num =  "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
-    mark += cwnd;
-    cwnd += cwnd;
-    if(cwnd > MSS)
-      cwnd = MSS;
+    else if(cwnd > 512)
+    {
+      for(int j = 512;j <= cwnd;j += 512)
+      {
+        len = 0;
+        for(int i = mark;i < mark + 512;i++)
+          _send._data[i-mark] = _data[i];
+        for(int i = 0;i < BUFFER_SIZE;i++)
+        {
+          if(_send._data[i] != 0)
+          len++;
+          else if(_send._data[i] == 0)
+            break;
+        }
+        if(len == 0)
+          break;
+        _send.len = len;
+        _send.seq_num = loc;
+        _send.ack_num = _rec.seq_num + 1;
+        send(clientfd,&_send,sizeof(_send),0);
+        cout<<"         Send a packet at : "<<loc<<" byte"<<endl;
+        recv(clientfd,&_rec,sizeof(_rec),0);
+        cout<<"         Receive a packet (seq_num =  "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
+        mark += 512;
+        loc += len;
+        if(cwnd == 2048 && swi == 0)
+        {
+          swi = 1;
+          set_zero();
+          _send.len = 0;
+          _send.seq_num = loc;
+          _send.ack_num = _rec.seq_num;
+          send(clientfd,&_send,sizeof(_send),0);
+          cout<<"         Send a packet at : "<<loc<<" byte"<<endl;
+          recv(clientfd,&_rec,sizeof(_rec),0);
+          cout<<"         Receive a packet (seq_num =  "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
+          cout<<"***Data loss at byte : "<<loc<<endl;
+          send(clientfd,&_send,sizeof(_send),0);
+          cout<<"         Send a packet at : "<<loc+512<<" byte"<<endl;
+          recv(clientfd,&_rec,sizeof(_rec),0);
+          cout<<"         Receive a packet (seq_num =  "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
+          send(clientfd,&_send,sizeof(_send),0);
+          cout<<"         Send a packet at : "<<loc+1024<<" byte"<<endl;
+          recv(clientfd,&_rec,sizeof(_rec),0);
+          cout<<"         Receive a packet (seq_num =  "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
+          cout<<"Receive three duplicate ACKs."<<endl;
+          cout<<"*****Fast retransmit*****"<<endl;
+          cout<<"*****Slow start*****"<<endl;
+          threshold = 1024;
+          cwnd = 1;
+          break;
+        }
+        set_zero();
+      }
+    }
+    if(len == 0)
+      break;
+    if(cwnd >= threshold)
+      cwnd += 512;
+    else if(swi == 1 && swi2 == 0)
+    {
+      swi2 = 1;
+      cwnd = 1;
+    }
+    else if(cwnd < threshold)
+      cwnd += cwnd;
+    if(cwnd == threshold)
+      cout<<"******Congestion avoidance******"<<endl;
     set_zero();
-    loc += len;
   }
   cout<<"The file transmission is finish."<<endl;
 }

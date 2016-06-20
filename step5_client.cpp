@@ -58,11 +58,11 @@ TCP::~TCP()
 {}
 void TCP::ini()
 {
-  int yes = 1;
   map<string,string> setip,setip2;
   map<string,int> setport,setport2;
   string stemp;
   char temp[20];
+  int yes = 1;
   setip["WAN"] = "192.168.0.1";
   setip["LAN"] = "192.168.0.2";
   setip2["WAN"] = "192.168.0.1";
@@ -142,9 +142,9 @@ void TCP::server(char *ip,char *C_PORT_NUM)
 }
 void TCP::data_trans()
 {
-  int mark = 0,len = 0,_stop = 0,delay = 1;
+  int mark = 0,len = 0,_stop = 0;
   rwnd = 10240;
-  while(mark < BUFFER_SIZE)
+  while(mark <= BUFFER_SIZE)
   {
     len = 0;
     recv(myfd,&_rec,sizeof(_rec),0);
@@ -165,17 +165,12 @@ void TCP::data_trans()
     mark += len;
     rwnd = BUFFER_SIZE - len;
     _send.rwnd = rwnd;
-    if(delay == 2)
-    {
-      send(myfd,&_send,sizeof(_send),0);
-      delay = 0;
-    }
-    if(_rec.ack_num == _stop + 28)
+    send(myfd,&_send,sizeof(_send),0);
+    if(_rec.seq_num + len >= 10240)
     {
       cout<<"The file transmission is complete."<<endl;
       break;
     }
-    delay++;
   }
 }
 void TCP::four_way(char *_ip,char *_port)

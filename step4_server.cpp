@@ -15,6 +15,7 @@ typedef struct{
   int seq_num;
   int ack_num;
   char _data[BUFFER_SIZE];
+  int len;
 }send_pkt;
 typedef struct{
   int seq_num;
@@ -202,7 +203,8 @@ void TCP::data_trans()
         else if(_send._data[i] == 0)
           break;
       }
-      _send.seq_num = cwnd;
+      _send.len = len;
+      _send.seq_num = loc;
       _send.ack_num = _rec.seq_num + 1;
       send(clientfd,&_send,sizeof(_send),0);
       cout<<"         Send a packet at : "<<loc<<" byte"<<endl;
@@ -227,7 +229,8 @@ void TCP::data_trans()
         }
         if(len == 0)
           break;
-        _send.seq_num = cwnd;
+        _send.len = len;
+        _send.seq_num = loc;
         _send.ack_num = _rec.seq_num + 1;
         send(clientfd,&_send,sizeof(_send),0);
         cout<<"         Send a packet at : "<<loc<<" byte"<<endl;
