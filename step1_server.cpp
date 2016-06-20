@@ -181,6 +181,7 @@ void TCP::data_trans()
   int cwnd = 1;
   int mark = 0;
   int len;
+  int loc = 1;
   cout<<"Start to send the file, the file size is 10240 bytes."<<endl;
   cout<<"*****Slow start*****"<<endl;
   _send.seq_num = 1;
@@ -202,7 +203,7 @@ void TCP::data_trans()
     _send.seq_num = cwnd;
     _send.ack_num = _rec.seq_num + 1;
     send(clientfd,&_send,sizeof(_send),0);
-    cout<<"         Send a packet at : "<<len<<" byte"<<endl;
+    cout<<"         Send a packet at : "<<loc<<" byte"<<endl;
     recv(clientfd,&_rec,sizeof(_rec),0);
     cout<<"         Receive a packet (seq_num =  "<<_rec.seq_num<<", ack_num = "<<_rec.ack_num<<")"<<endl;
     mark += cwnd;
@@ -210,6 +211,7 @@ void TCP::data_trans()
     if(cwnd > MSS)
       cwnd = MSS;
     set_zero();
+    loc += len;
   }
   cout<<"The file transmission is finish."<<endl;
 }
