@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <iostream>
 #include <unistd.h>
+#include <thread>
 #define BUFFER_SIZE 10240
 using namespace std;
 typedef struct{
@@ -38,6 +39,8 @@ class TCP{
     void three_way();
     void data_trans();
     void four_way();
+	void run_all();
+	void multi();
   private:
     int ipfd,RTT,MSS,threshold,port,n_seq_num,listenfd,clientfd,ack,seq_num,c_port;
     char _data[BUFFER_SIZE],synack[10],syn[5],c_ack[5];
@@ -154,6 +157,7 @@ void TCP::go_listen()
       exit(1);
     }
     three_way();
+	fork();
   }
   close(listenfd);
 }
@@ -221,6 +225,7 @@ void TCP::four_way()
 {
   set_zero();
   cout<<"=====Start four-way handshake.====="<<endl;
+  sleep(10);
   get_seq_num();
   _send.seq_num = seq_num;
   _send.ack_num = _rec.seq_num;
@@ -241,17 +246,22 @@ void TCP::four_way()
   cout<<"=====Complete the four-way handshake====="<<endl;
   close(clientfd);
 }
+void TCP::run_all(){
+	set_zero();
+	getip();
+	print_parameters();
+	create_data();
+	get_seq_num();
+	open_socket();
+	check_bind();
+	check_listen();
+	go_listen();
+}
+void multi(){
+}
 int main()
 {
   TCP myTCP;
-  myTCP.set_zero();
-  myTCP.getip();
-  myTCP.print_parameters();
-  myTCP.create_data();
-  myTCP.get_seq_num();
-  myTCP.open_socket();
-  myTCP.check_bind();
-  myTCP.check_listen();
-  myTCP.go_listen();
+  myTCP.run_all();
   return 0;
 }
