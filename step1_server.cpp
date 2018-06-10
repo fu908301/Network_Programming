@@ -146,6 +146,7 @@ void TCP::check_listen()
 }
 void TCP::go_listen()
 {
+  int pid;
   while(1)
   {
     socklen_t addrlen = sizeof(cliaddr);
@@ -156,8 +157,23 @@ void TCP::go_listen()
       cout<<"Accept error."<<endl;
       exit(1);
     }
-    three_way();
-	fork();
+	if((pid = fork()) == -1)
+	{
+		close(clientfd);
+		continue;
+	}
+	else if(pid > 0)
+	{
+		close(clientfd);
+		cout << "here2" << endl;
+		continue;
+	}
+	else if(pid == 0)
+	{
+		three_way();
+	}
+	cout << "pause" << endl;
+	sleep(10);
   }
   close(listenfd);
 }
@@ -225,7 +241,6 @@ void TCP::four_way()
 {
   set_zero();
   cout<<"=====Start four-way handshake.====="<<endl;
-  sleep(10);
   get_seq_num();
   _send.seq_num = seq_num;
   _send.ack_num = _rec.seq_num;
